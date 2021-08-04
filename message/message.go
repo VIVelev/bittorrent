@@ -76,3 +76,7 @@ func Unmarshal(r io.Reader) (*Message, error) {
 	}, nil
 
 }
+
+func (m *Message) String() string {
+	return ""
+}

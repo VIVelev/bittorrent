@@ -10,10 +10,13 @@ const (
 	Pstr string = "BitTorrent protocol"
 )
 
+// Handshake is the first message two peers exchange to establish a connetion.
+// A handshake consists of:
+// <length of protocol id><protocol id><ReservedBytes><InfoHash><PeerID>
 type Handshake struct {
-	ReservedBytes [8]byte
-	InfoHash      [20]byte
-	PeerID        [20]byte
+	ReservedBytes [8]byte  // used to indicate support for certain extensions
+	InfoHash      [20]byte // identifies which file we want
+	PeerID        [20]byte // idetifies ourselves
 }
 
 func Marshal(hs *Handshake) (ret [1 + Len + 48]byte) {

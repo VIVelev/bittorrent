@@ -9,8 +9,9 @@ import (
 
 // Peer represents connection information for a peer.
 type Peer struct {
-	IP   net.IP
-	Port uint16
+	IP     net.IP
+	Port   uint16
+	PeerID [20]byte // not used when compact=1
 }
 
 func (p Peer) String() string {
