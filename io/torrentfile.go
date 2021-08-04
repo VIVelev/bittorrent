@@ -37,7 +37,9 @@ func (i bencodeInfo) splitPieces() (pieceHashes [][hashLen]byte, err error) {
 
 	pieceHashes = make([][hashLen]byte, r.Len()/hashLen)
 	for i := range pieceHashes {
-		io.ReadFull(r, pieceHashes[i][:])
+		if _, err := io.ReadFull(r, pieceHashes[i][:]); err != nil {
+			return nil, err
+		}
 	}
 
 	if r.Len() != 0 {
