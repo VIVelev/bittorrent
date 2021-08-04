@@ -2,10 +2,14 @@
 package discovery
 
 import (
+	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/VIVelev/bittorrent/io"
+	"github.com/VIVelev/bittorrent/peers"
+	"github.com/jackpal/bencode-go"
 )
 
 type bencodeResponse struct {
@@ -33,6 +37,25 @@ func buildURL(tf *io.TorrentFile, peerID [20]byte, port uint16) (string, error) 
 	return base.String(), nil
 }
 
-func requestPeers(tf *io.TorrentFile, peerID [20]byte, port uint16) (string, error) {
-	return "", nil
+// RequestPeers asks the tracker from tf about peers, introducing itself with peerID and port.
+func RequestPeers(tf *io.TorrentFile, peerID [20]byte, port uint16) ([]peers.Peer, error) {
+	url, err := buildURL(tf, peerID, port)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &http.Client{Timeout: 15 * time.Second}
+	resp, err := c.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	trackerResp := bencodeResponse{}
+	err = bencode.Unmarshal(resp.Body, &trackerResp)
+	if err != nil {
+		return nil, err
+	}
+
+	return peers.Unmarshal([]byte(trackerResp.Peers))
 }
