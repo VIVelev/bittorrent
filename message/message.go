@@ -2,6 +2,7 @@ package message
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
@@ -77,6 +78,39 @@ func Unmarshal(r io.Reader) (*Message, error) {
 
 }
 
+func (m *Message) name() string {
+	if m == nil {
+		return "KeepAlive"
+	}
+
+	switch m.ID {
+	case MsgChoke:
+		return "Choke"
+	case MsgUnchoke:
+		return "Unchoke"
+	case MsgInterested:
+		return "Interested"
+	case MsgNotInterested:
+		return "NotInterested"
+	case MsgHave:
+		return "Have"
+	case MsgBitfield:
+		return "Bitfield"
+	case MsgRequest:
+		return "Request"
+	case MsgPiece:
+		return "Piece"
+	case MsgCancel:
+		return "Cancel"
+	default:
+		return fmt.Sprintf("Unknown#%d", m.ID)
+	}
+}
+
 func (m *Message) String() string {
-	return ""
+	if m == nil {
+		return m.name()
+	}
+
+	return fmt.Sprintf("%s (payload len. %d)", m.name(), len(m.Payload))
 }
