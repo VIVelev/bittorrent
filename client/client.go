@@ -85,3 +85,39 @@ func New(peer peers.Peer, infoHash, peerID [20]byte) (*Client, error) {
 		Bitfield: bf,
 	}, nil
 }
+
+// Read unmarshals a message from the connection.
+func (c *Client) Read() (*message.Message, error) {
+	return message.Unmarshal(c.Conn)
+}
+
+// WriteUnchoke sends an UnchokeMsg to the peer.
+func (c *Client) WriteUnchoke() error {
+	m := &message.Message{ID: message.MsgUnchoke}
+	_, err := c.Conn.Write(message.Marshal(m))
+	return err
+}
+
+func (c *Client) WriteInterested() error {
+	m := &message.Message{ID: message.MsgInterested}
+	_, err := c.Conn.Write(message.Marshal(m))
+	return err
+}
+
+func (c *Client) WriteNotInterested() error {
+	m := &message.Message{ID: message.MsgNotInterested}
+	_, err := c.Conn.Write(message.Marshal(m))
+	return err
+}
+
+func (c *Client) WriteHave(index uint32) error {
+	m := message.Have(index)
+	_, err := c.Conn.Write(message.Marshal(m))
+	return err
+}
+
+func (c *Client) WriteRequest(index, begin, length uint32) error {
+	m := message.Request(index, begin, length)
+	_, err := c.Conn.Write(message.Marshal(m))
+	return err
+}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/VIVelev/bittorrent/bitfield"
 	"github.com/VIVelev/bittorrent/handshake"
+	"github.com/VIVelev/bittorrent/message"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -104,4 +105,120 @@ func TestRecvBitfield(t *testing.T) {
 			assert.Equal(t, bf, test.output)
 		}
 	}
+}
+
+func TestRead(t *testing.T) {
+	serverConn, clientConn := createServerAndClient(t)
+	client := &Client{Conn: clientConn}
+
+	msgBytes := []byte{
+		0x00, 0x00, 0x00, 0x05,
+		4,
+		0x00, 0x00, 0x05, 0x3c,
+	}
+	expected := &message.Message{
+		ID:      message.MsgHave,
+		Payload: []byte{0x00, 0x00, 0x05, 0x3c},
+	}
+
+	_, err := serverConn.Write(msgBytes)
+	require.Nil(t, err)
+
+	msg, err := client.Read()
+	assert.Nil(t, err)
+	assert.Equal(t, msg, expected)
+}
+
+func TestWriteUnchoke(t *testing.T) {
+	serverConn, clientConn := createServerAndClient(t)
+	client := &Client{Conn: clientConn}
+
+	expected := []byte{
+		0x00, 0x00, 0x00, 0x01,
+		1,
+	}
+	buf := make([]byte, len(expected))
+
+	err := client.WriteUnchoke()
+	assert.Nil(t, err)
+
+	_, err = serverConn.Read(buf)
+	assert.Nil(t, err)
+	assert.Equal(t, buf, expected)
+}
+
+func TestWriteInterested(t *testing.T) {
+	serverConn, clientConn := createServerAndClient(t)
+	client := &Client{Conn: clientConn}
+
+	expected := []byte{
+		0x00, 0x00, 0x00, 0x01,
+		2,
+	}
+	buf := make([]byte, len(expected))
+
+	err := client.WriteInterested()
+	assert.Nil(t, err)
+
+	_, err = serverConn.Read(buf)
+	assert.Nil(t, err)
+	assert.Equal(t, buf, expected)
+}
+
+func TestWriteNotInterested(t *testing.T) {
+	serverConn, clientConn := createServerAndClient(t)
+	client := &Client{Conn: clientConn}
+
+	expected := []byte{
+		0x00, 0x00, 0x00, 0x01,
+		3,
+	}
+	buf := make([]byte, len(expected))
+
+	err := client.WriteNotInterested()
+	assert.Nil(t, err)
+
+	_, err = serverConn.Read(buf)
+	assert.Nil(t, err)
+	assert.Equal(t, buf, expected)
+}
+
+func TestWriteHave(t *testing.T) {
+	serverConn, clientConn := createServerAndClient(t)
+	client := &Client{Conn: clientConn}
+
+	expected := []byte{
+		0x00, 0x00, 0x00, 0x05,
+		4,
+		0x00, 0x00, 0x00, 0x01,
+	}
+	buf := make([]byte, len(expected))
+
+	err := client.WriteHave(1)
+	assert.Nil(t, err)
+
+	_, err = serverConn.Read(buf)
+	assert.Nil(t, err)
+	assert.Equal(t, buf, expected)
+}
+
+func TestWriteRequest(t *testing.T) {
+	serverConn, clientConn := createServerAndClient(t)
+	client := &Client{Conn: clientConn}
+
+	expected := []byte{
+		0x00, 0x00, 0x00, 0x0d,
+		6,
+		0x00, 0x00, 0x00, 0x01, // index
+		0x00, 0x00, 0x00, 0x02, // begin
+		0x00, 0x00, 0x00, 0x03, // length
+	}
+	buf := make([]byte, len(expected))
+
+	err := client.WriteRequest(1, 2, 3)
+	assert.Nil(t, err)
+
+	_, err = serverConn.Read(buf)
+	assert.Nil(t, err)
+	assert.Equal(t, buf, expected)
 }
