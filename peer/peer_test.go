@@ -1,4 +1,4 @@
-package peers
+package peer
 
 import (
 	"net"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUnmarshal(t *testing.T) {
+func TestUnmarshalCompact(t *testing.T) {
 	tests := map[string]struct {
 		input  string
 		output []Peer
@@ -28,7 +28,7 @@ func TestUnmarshal(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		peers, err := Unmarshal([]byte(test.input))
+		peers, err := UnmarshalCompact([]byte(test.input))
 		if test.fails {
 			assert.NotNil(t, err)
 		} else {

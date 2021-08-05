@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/VIVelev/bittorrent/io"
-	"github.com/VIVelev/bittorrent/peers"
+	"github.com/VIVelev/bittorrent/peer"
 	"github.com/jackpal/bencode-go"
 )
 
@@ -24,13 +24,15 @@ func buildURL(tf *io.TorrentFile, peerID [20]byte, port uint16) (string, error) 
 	}
 
 	params := url.Values{
-		"info_hash":  []string{string(tf.InfoHash[:])},
-		"peer_id":    []string{string(peerID[:])},
+		"info_hash": []string{string(tf.InfoHash[:])},
+		"peer_id":   []string{string(peerID[:])},
+		// "ip":         []string{}, // optional
 		"port":       []string{strconv.Itoa(int(port))},
 		"uploaded":   []string{"0"},
 		"downloaded": []string{"0"},
-		"compact":    []string{"1"},
 		"left":       []string{strconv.Itoa(tf.Length)},
+		// "event":      []string{"started"}, // optional, one of: started, completed, stopped
+		"compact": []string{"1"}, // BEP 23
 	}
 
 	base.RawQuery = params.Encode()
@@ -38,7 +40,7 @@ func buildURL(tf *io.TorrentFile, peerID [20]byte, port uint16) (string, error) 
 }
 
 // RequestPeers asks the tracker from tf about peers, introducing itself with peerID and port.
-func RequestPeers(tf *io.TorrentFile, peerID [20]byte, port uint16) ([]peers.Peer, error) {
+func RequestPeers(tf *io.TorrentFile, peerID [20]byte, port uint16) ([]peer.Peer, error) {
 	url, err := buildURL(tf, peerID, port)
 	if err != nil {
 		return nil, err
@@ -57,5 +59,5 @@ func RequestPeers(tf *io.TorrentFile, peerID [20]byte, port uint16) ([]peers.Pee
 		return nil, err
 	}
 
-	return peers.Unmarshal([]byte(trackerResp.Peers))
+	return peer.UnmarshalCompact([]byte(trackerResp.Peers))
 }

@@ -1,4 +1,4 @@
-package peers
+package peer
 
 import (
 	"encoding/binary"
@@ -18,8 +18,8 @@ func (p Peer) String() string {
 	return net.JoinHostPort(p.IP.String(), strconv.Itoa(int(p.Port)))
 }
 
-// Unmarshal parses bytes to peers.
-func Unmarshal(peersBin []byte) ([]Peer, error) {
+// UnmarshalCompact parses bytes in compact representation to peers.
+func UnmarshalCompact(peersBin []byte) ([]Peer, error) {
 	const peerSize = 6 // 4 bytes for IP, 2 for Port
 	if len(peersBin)%peerSize != 0 {
 		return nil, fmt.Errorf("peers bin must be a multiple of %d", peerSize)

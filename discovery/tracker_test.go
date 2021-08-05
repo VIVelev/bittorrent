@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/VIVelev/bittorrent/io"
-	"github.com/VIVelev/bittorrent/peers"
+	"github.com/VIVelev/bittorrent/peer"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -61,7 +61,7 @@ func TestRequestPeers(t *testing.T) {
 	const port uint16 = 6881
 
 	p, err := RequestPeers(tf, peerID, port)
-	expected := []peers.Peer{
+	expected := []peer.Peer{
 		{IP: net.IP{192, 0, 2, 123}, Port: 6881},
 		{IP: net.IP{127, 0, 0, 1}, Port: 6889},
 	}

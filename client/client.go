@@ -9,7 +9,7 @@ import (
 	"github.com/VIVelev/bittorrent/bitfield"
 	"github.com/VIVelev/bittorrent/handshake"
 	"github.com/VIVelev/bittorrent/message"
-	"github.com/VIVelev/bittorrent/peers"
+	"github.com/VIVelev/bittorrent/peer"
 )
 
 // Client is a TCP connection with one peer.
@@ -63,7 +63,7 @@ func recvBitfield(conn net.Conn) (bitfield.Bitfield, error) {
 }
 
 // New connects to a peer, completes a handshake, and receives a bitfield.
-func New(peer peers.Peer, infoHash, peerID [20]byte) (*Client, error) {
+func New(peer peer.Peer, infoHash, peerID [20]byte) (*Client, error) {
 	conn, err := net.DialTimeout("tcp", peer.String(), 3*time.Second)
 	if err != nil {
 		return nil, err
