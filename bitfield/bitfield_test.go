@@ -9,7 +9,7 @@ import (
 func TestHasPiece(t *testing.T) {
 	bf := Bitfield{0b01010100, 0b01010100}
 	outputs := []bool{false, true, false, true, false, true, false, false, false, true, false, true, false, true, false, false, false, false, false, false}
-	for i := 0; i < len(outputs); i++ {
+	for i := uint32(0); i < uint32(len(outputs)); i++ {
 		assert.Equal(t, outputs[i], bf.HasPiece(i))
 	}
 }
@@ -17,7 +17,7 @@ func TestHasPiece(t *testing.T) {
 func TestSetPiece(t *testing.T) {
 	tests := []struct {
 		input Bitfield
-		index int
+		index uint32
 		outpt Bitfield
 	}{
 		{

@@ -75,7 +75,7 @@ func TestParsePiece(t *testing.T) {
 		msg       *Message
 		index     uint32
 		buf       []byte
-		outputN   int
+		outputN   uint32
 		targetBuf []byte
 		fails     bool
 	}{

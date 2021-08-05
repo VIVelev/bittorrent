@@ -12,12 +12,12 @@ import (
 	"github.com/jackpal/bencode-go"
 )
 
-const hashLen = 20
+const hashLen int = 20
 
 type bencodeInfo struct {
 	Name        string `bencode:"name"`
-	Length      int    `bencode:"length"`
-	PieceLength int    `bencode:"piece length"`
+	Length      uint32 `bencode:"length"`
+	PieceLength uint32 `bencode:"piece length"`
 	Pieces      string `bencode:"pieces"`
 }
 
@@ -80,8 +80,8 @@ type TorrentFile struct {
 	Announce    string
 	InfoHash    [20]byte
 	Name        string
-	Length      int
-	PieceLength int
+	Length      uint32
+	PieceLength uint32
 	PieceHashes [][hashLen]byte
 }
 

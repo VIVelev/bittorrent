@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-type messageID uint8
+type messageID int8
 
 const (
 	// MsgChoke chokes the receiver.

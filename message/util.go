@@ -45,7 +45,7 @@ func ParseRequest(msg *Message) (uint32, uint32, uint32, error) {
 }
 
 // ParsePiece converts a Piece message to index, begin, data and writes data to buf.
-func ParsePiece(msg *Message, index uint32, buf []byte) (int, error) {
+func ParsePiece(msg *Message, index uint32, buf []byte) (uint32, error) {
 	if msg.ID != MsgPiece {
 		return 0, fmt.Errorf("expected a Piece message (ID %d), got ID %d", MsgPiece, msg.ID)
 	}
@@ -64,9 +64,9 @@ func ParsePiece(msg *Message, index uint32, buf []byte) (int, error) {
 	}
 
 	data := msg.Payload[8:]
-	if begin+uint32(len(data)) >= uint32(len(buf)) {
+	if int(begin)+len(data) >= len(buf) {
 		return 0, fmt.Errorf("not enough space in buf to write data from offset begin")
 	}
 
-	return copy(buf[begin:], data), nil
+	return uint32(copy(buf[begin:], data)), nil
 }

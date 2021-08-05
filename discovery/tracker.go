@@ -30,7 +30,7 @@ func buildURL(tf *io.TorrentFile, peerID [20]byte, port uint16) (string, error) 
 		"port":       []string{strconv.Itoa(int(port))},
 		"uploaded":   []string{"0"},
 		"downloaded": []string{"0"},
-		"left":       []string{strconv.Itoa(tf.Length)},
+		"left":       []string{strconv.Itoa(int(tf.Length))},
 		// "event":      []string{"started"}, // optional, one of: started, completed, stopped
 		"compact": []string{"1"}, // BEP 23
 	}
