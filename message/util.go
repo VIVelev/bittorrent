@@ -64,8 +64,8 @@ func ParsePiece(msg *Message, index uint32, buf []byte) (uint32, error) {
 	}
 
 	data := msg.Payload[8:]
-	if int(begin)+len(data) >= len(buf) {
-		return 0, fmt.Errorf("not enough space in buf to write data from offset begin")
+	if int(begin)+len(data) > len(buf) {
+		return 0, fmt.Errorf("not enough space in buf (%d) to write data (%d) from offset begin (%d)", len(buf), len(data), begin)
 	}
 
 	return uint32(copy(buf[begin:], data)), nil

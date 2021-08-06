@@ -54,18 +54,18 @@ type bencodeTorrent struct {
 	Info     bencodeInfo `bencode:"info"`
 }
 
-func (bto bencodeTorrent) toTorrentFile() (TorrentFile, error) {
+func (bto bencodeTorrent) toTorrentFile() (*TorrentFile, error) {
 	h, err := bto.Info.hash()
 	if err != nil {
-		return TorrentFile{}, err
+		return &TorrentFile{}, err
 	}
 
 	hashes, err := bto.Info.splitPieces()
 	if err != nil {
-		return TorrentFile{}, err
+		return &TorrentFile{}, err
 	}
 
-	return TorrentFile{
+	return &TorrentFile{
 		Announce:    bto.Announce,
 		InfoHash:    h,
 		Name:        bto.Info.Name,
@@ -86,17 +86,17 @@ type TorrentFile struct {
 }
 
 // Open parses a torrent file.
-func Open(path string) (TorrentFile, error) {
+func Open(path string) (*TorrentFile, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return TorrentFile{}, err
+		return &TorrentFile{}, err
 	}
 	defer f.Close()
 
 	bto := bencodeTorrent{}
 	err = bencode.Unmarshal(f, &bto)
 	if err != nil {
-		return TorrentFile{}, err
+		return &TorrentFile{}, err
 	}
 
 	return bto.toTorrentFile()

@@ -35,8 +35,9 @@ func attemptDownloadPiece(c *client.Client, pw *pieceWork) ([]byte, error) {
 	// backloged requests to peer
 	var backloged int
 	// requested bytes from peer
-	// downloaded bytes stored in-memory (buf)
+	// downloaded bytes from peer
 	var requested, downloaded uint32
+	// store the bytes in-memory
 	buf := make([]byte, pw.length)
 
 	// setting a deadline helps get unresponsive peers unstuck
@@ -66,6 +67,11 @@ func attemptDownloadPiece(c *client.Client, pw *pieceWork) ([]byte, error) {
 		msg, err := c.Read()
 		if err != nil {
 			return nil, err
+		}
+
+		if msg == nil {
+			// keep-alive message
+			continue
 		}
 
 		switch msg.ID {
@@ -134,7 +140,7 @@ func startDownloadWorker(p peer.Peer, infoHash, peerID [20]byte, workQ chan *pie
 	}
 }
 
-func Download(tf *io.TorrentFile, peerID [20]byte, peers []peer.Peer) error {
+func Download(tf *io.TorrentFile, peerID [20]byte, peers []peer.Peer) []byte {
 	log.Println("Starting download for", tf.Name)
 	totalPieces := len(tf.PieceHashes)
 
@@ -148,6 +154,7 @@ func Download(tf *io.TorrentFile, peerID [20]byte, peers []peer.Peer) error {
 	}
 
 	// start download workers
+	log.Printf("Starting a download worker for each peer (%d in total).\n", len(peers))
 	for _, p := range peers {
 		go startDownloadWorker(p, tf.InfoHash, peerID, workQ, piecesQ)
 	}
@@ -166,6 +173,7 @@ func Download(tf *io.TorrentFile, peerID [20]byte, peers []peer.Peer) error {
 		numWorkers := runtime.NumGoroutine() - 1 // substract the main thread
 		log.Printf("(%0.2f%%) Downloaded piece #%d from %d peers\n", percent, piece.index, numWorkers)
 	}
+	close(workQ)
 
-	return nil
+	return buf
 }
