@@ -20,11 +20,11 @@ func main() {
 	peerID := peer.RandID()
 	port := peer.DownloadPort
 	peers, err := discovery.RequestPeers(tf, peerID, port)
-	if len(peers) == 0 {
-		panic("0 peers were found")
-	}
 	if err != nil {
 		panic(err)
+	}
+	if len(peers) == 0 {
+		panic("0 peers were found")
 	}
 
 	data := p2p.Download(tf, peerID, peers)
