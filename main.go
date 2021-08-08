@@ -1,8 +1,6 @@
 package main
 
 import (
-	"io/fs"
-	"io/ioutil"
 	"os"
 
 	"github.com/VIVelev/bittorrent/discovery"
@@ -28,7 +26,10 @@ func main() {
 	}
 
 	data := p2p.Download(tf, peerID, peers)
-	err = ioutil.WriteFile(tf.Name, data, fs.ModePerm)
+	if data == nil {
+		panic("DEAD")
+	}
+	err = tf.WriteToFile(data)
 	if err != nil {
 		panic(err)
 	}

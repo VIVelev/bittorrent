@@ -14,16 +14,39 @@ import (
 
 const hashLen int = 20
 
+type bencodeFile struct {
+	Length int      `bencode:"length"`
+	Path   []string `bencode:"path"`
+}
+
 type bencodeInfo struct {
-	Name        string `bencode:"name"`
-	Length      uint32 `bencode:"length"`
-	PieceLength uint32 `bencode:"piece length"`
-	Pieces      string `bencode:"pieces"`
+	Name        string        `bencode:"name"`   // name of the file or directory
+	Length      int           `bencode:"length"` // present in the single-file case
+	Files       []bencodeFile `bencode:"files"`  // present in the multi-file case
+	PieceLength int           `bencode:"piece length"`
+	Pieces      string        `bencode:"pieces"` // sha1 checksums of the pieces
 }
 
 func (i bencodeInfo) hash() ([hashLen]byte, error) {
 	buf := new(bytes.Buffer)
-	if err := bencode.Marshal(buf, i); err != nil {
+	var val interface{}
+	if i.Files != nil {
+		val = struct {
+			Name        string        `bencode:"name"`
+			Files       []bencodeFile `bencode:"files"`
+			PieceLength int           `bencode:"piece length"`
+			Pieces      string        `bencode:"pieces"`
+		}{i.Name, i.Files, i.PieceLength, i.Pieces}
+	} else {
+		val = struct {
+			Name        string `bencode:"name"`
+			Length      int    `bencode:"length"`
+			PieceLength int    `bencode:"piece length"`
+			Pieces      string `bencode:"pieces"`
+		}{i.Name, i.Length, i.PieceLength, i.Pieces}
+	}
+
+	if err := bencode.Marshal(buf, val); err != nil {
 		return [hashLen]byte{}, err
 	}
 	return sha1.Sum(buf.Bytes()), nil
@@ -50,8 +73,9 @@ func (i bencodeInfo) splitPieces() (pieceHashes [][hashLen]byte, err error) {
 }
 
 type bencodeTorrent struct {
-	Announce string      `bencode:"announce"`
-	Info     bencodeInfo `bencode:"info"`
+	Announce     string      `bencode:"announce"`
+	AnnounceList [][]string  `bencode:"announce-list"` // BEP 12
+	Info         bencodeInfo `bencode:"info"`
 }
 
 func (bto bencodeTorrent) toTorrentFile() (*TorrentFile, error) {
@@ -65,24 +89,39 @@ func (bto bencodeTorrent) toTorrentFile() (*TorrentFile, error) {
 		return &TorrentFile{}, err
 	}
 
+	var length int
+	if bto.Info.Files != nil {
+		for _, f := range bto.Info.Files {
+			length += f.Length
+		}
+	} else {
+		length = bto.Info.Length
+	}
+
 	return &TorrentFile{
-		Announce:    bto.Announce,
-		InfoHash:    h,
-		Name:        bto.Info.Name,
-		Length:      bto.Info.Length,
-		PieceLength: bto.Info.PieceLength,
-		PieceHashes: hashes,
+		Announce:     bto.Announce,
+		AnnounceList: bto.AnnounceList,
+		InfoHash:     h,
+		Name:         bto.Info.Name,
+		IsMultiFile:  bto.Info.Files != nil,
+		Length:       length,
+		Files:        bto.Info.Files,
+		PieceLength:  bto.Info.PieceLength,
+		PieceHashes:  hashes,
 	}, nil
 }
 
 // TorrentFile represents the metadata from the .torrent file.
 type TorrentFile struct {
-	Announce    string
-	InfoHash    [20]byte
-	Name        string
-	Length      uint32
-	PieceLength uint32
-	PieceHashes [][hashLen]byte
+	Announce     string
+	AnnounceList [][]string
+	InfoHash     [20]byte
+	Name         string
+	IsMultiFile  bool
+	Length       int
+	Files        []bencodeFile
+	PieceLength  int
+	PieceHashes  [][hashLen]byte
 }
 
 // Open parses a torrent file.

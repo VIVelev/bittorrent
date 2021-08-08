@@ -2,6 +2,8 @@
 package discovery
 
 import (
+	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -17,8 +19,8 @@ type bencodeResponse struct {
 	Peers    string `bencode:"peers"`
 }
 
-func buildURL(tf *io.TorrentFile, peerID [20]byte, port uint16) (string, error) {
-	base, err := url.Parse(tf.Announce)
+func buildURL(announce string, tf *io.TorrentFile, peerID [20]byte, port uint16) (string, error) {
+	base, err := url.Parse(announce)
 	if err != nil {
 		return "", err
 	}
@@ -39,25 +41,56 @@ func buildURL(tf *io.TorrentFile, peerID [20]byte, port uint16) (string, error) 
 	return base.String(), nil
 }
 
+func buildURLs(tf *io.TorrentFile, peerID [20]byte, port uint16) ([]string, error) {
+	// try using the announce-list first
+	if tf.AnnounceList != nil {
+		var urls []string
+		for _, tier := range tf.AnnounceList {
+			for _, announce := range tier {
+				if announce[:4] == "http" {
+					url, err := buildURL(announce, tf, peerID, port)
+					if err != nil {
+						return nil, err
+					}
+					urls = append(urls, url)
+				}
+			}
+		}
+
+		return urls, nil
+	}
+
+	url, err := buildURL(tf.Announce, tf, peerID, port)
+	return []string{url}, err
+}
+
 // RequestPeers asks the tracker from tf about peers, introducing itself with peerID and port.
 func RequestPeers(tf *io.TorrentFile, peerID [20]byte, port uint16) ([]peer.Peer, error) {
-	url, err := buildURL(tf, peerID, port)
+	urls, err := buildURLs(tf, peerID, port)
 	if err != nil {
 		return nil, err
 	}
 
+	var resp *http.Response
 	c := &http.Client{Timeout: 15 * time.Second}
-	resp, err := c.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
+	for _, announceURL := range urls {
+		base, _ := url.Parse(announceURL)
+		log.Println("Contacting tracker at:", base.Host)
 
-	trackerResp := bencodeResponse{}
-	err = bencode.Unmarshal(resp.Body, &trackerResp)
-	if err != nil {
-		return nil, err
+		resp, err = c.Get(announceURL)
+		if err != nil {
+			log.Println("Failed:", err.Error())
+			continue
+		}
+
+		defer resp.Body.Close()
+		trackerResp := bencodeResponse{}
+		err = bencode.Unmarshal(resp.Body, &trackerResp)
+		if err != nil {
+			return nil, err
+		}
+		return peer.UnmarshalCompact([]byte(trackerResp.Peers))
 	}
 
-	return peer.UnmarshalCompact([]byte(trackerResp.Peers))
+	return nil, errors.New("couldn't connect to a tracker")
 }

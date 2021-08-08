@@ -3,6 +3,7 @@ package p2p
 import (
 	"bytes"
 	"crypto/sha1"
+	"fmt"
 	"log"
 	"runtime"
 	"time"
@@ -17,26 +18,25 @@ const (
 	// MaxBacklog is the max number of unfulfilled requests a client can have in its pipeline.
 	MaxBacklog int = 5
 	// MaxBlockSize is the largest number of bytes a request can ask for.
-	MaxBlockSize uint32 = 16384 // ~16kB
+	MaxBlockSize int = 16384 // 16KiB
 )
 
 type pieceWork struct {
-	index    uint32
-	length   uint32
+	index    int
+	length   int
 	checksum [20]byte
 }
 
 type downloadedPiece struct {
-	index uint32
+	index int
 	data  []byte
 }
 
 func attemptDownloadPiece(c *client.Client, pw *pieceWork) ([]byte, error) {
 	// backloged requests to peer
-	var backloged int
 	// requested bytes from peer
 	// downloaded bytes from peer
-	var requested, downloaded uint32
+	var backloged, requested, downloaded int
 	// store the bytes in-memory
 	buf := make([]byte, pw.length)
 
@@ -56,7 +56,7 @@ func attemptDownloadPiece(c *client.Client, pw *pieceWork) ([]byte, error) {
 				}
 
 				if err := c.WriteRequest(pw.index, requested, blockSize); err != nil {
-					return nil, err
+					return nil, fmt.Errorf("write request: %s", err)
 				}
 
 				backloged++
@@ -66,7 +66,7 @@ func attemptDownloadPiece(c *client.Client, pw *pieceWork) ([]byte, error) {
 
 		msg, err := c.Read()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("read message: %s", err)
 		}
 
 		if msg == nil {
@@ -88,7 +88,7 @@ func attemptDownloadPiece(c *client.Client, pw *pieceWork) ([]byte, error) {
 		case message.MsgPiece:
 			n, err := message.ParsePiece(msg, pw.index, buf)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parse piece: %s", err)
 			}
 			backloged--
 			downloaded += n
@@ -103,10 +103,11 @@ func checkIntegrity(pw *pieceWork, buf []byte) bool {
 	return bytes.Equal(hash[:], pw.checksum[:])
 }
 
-func startDownloadWorker(p peer.Peer, infoHash, peerID [20]byte, workQ chan *pieceWork, piecesQ chan *downloadedPiece) {
+func startDownloadWorker(p peer.Peer, infoHash, peerID [20]byte, workQ chan *pieceWork, piecesQ chan *downloadedPiece, sigDead chan<- struct{}) {
 	c, err := client.New(p, infoHash, peerID)
 	if err != nil {
-		log.Printf("Could not handshake with %s. Disconnecting.\n", p)
+		log.Printf("Could not handshake with %s. Error: %s. Disconnecting.\n", p, err)
+		sigDead <- struct{}{}
 		return
 	}
 	log.Printf("Completed handshake with %s.\n", p)
@@ -126,6 +127,7 @@ func startDownloadWorker(p peer.Peer, infoHash, peerID [20]byte, workQ chan *pie
 			// this peer does not want to talk ;(
 			log.Println("Exiting.", err)
 			workQ <- pw // put back in the queue
+			sigDead <- struct{}{}
 			return
 		}
 
@@ -144,33 +146,53 @@ func Download(tf *io.TorrentFile, peerID [20]byte, peers []peer.Peer) []byte {
 	log.Println("Starting download for", tf.Name)
 	totalPieces := len(tf.PieceHashes)
 
-	// init work and pieces queues
+	// init work and pieces queues, and sigDead channel
 	workQ := make(chan *pieceWork, totalPieces)
 	piecesQ := make(chan *downloadedPiece)
+	sigDead := make(chan struct{})
 
 	// fill in the work q
 	for i, hash := range tf.PieceHashes {
-		workQ <- &pieceWork{index: uint32(i), length: tf.PieceLength, checksum: hash}
+		workQ <- &pieceWork{index: i, length: tf.PieceLength, checksum: hash}
 	}
 
 	// start download workers
 	log.Printf("Starting a download worker for each peer (%d in total).\n", len(peers))
 	for _, p := range peers {
-		go startDownloadWorker(p, tf.InfoHash, peerID, workQ, piecesQ)
+		go startDownloadWorker(p, tf.InfoHash, peerID, workQ, piecesQ, sigDead)
 	}
+
+	// monitor for dead workers
+	go func() {
+		numDead := 0
+		for {
+			if numDead == len(peers) {
+				close(workQ)
+				close(piecesQ)
+			}
+			<-sigDead
+			numDead++
+		}
+	}()
 
 	// collect download pieces in a buffer until full
 	buf := make([]byte, tf.Length)
 	numDownloaded := 0
 	for numDownloaded < totalPieces {
 		piece := <-piecesQ
+		if piece == nil {
+			return nil
+		}
 		begin := piece.index * tf.PieceLength
 		end := begin + tf.PieceLength
+		if end > tf.Length {
+			end = tf.Length
+		}
 		copy(buf[begin:end], piece.data)
 		numDownloaded++
 
 		percent := float64(numDownloaded) / float64(totalPieces) * 100
-		numWorkers := runtime.NumGoroutine() - 1 // substract the main thread
+		numWorkers := runtime.NumGoroutine() - 2 // substract the main thread and dead workers monitor
 		log.Printf("(%0.2f%%) Downloaded piece #%d from %d peers\n", percent, piece.index, numWorkers)
 	}
 	close(workQ)

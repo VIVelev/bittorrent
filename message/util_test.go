@@ -33,7 +33,7 @@ func TestRequest(t *testing.T) {
 func TestParseHave(t *testing.T) {
 	tests := map[string]struct {
 		input  *Message
-		output uint32
+		output int
 		fails  bool
 	}{
 		"parse valid message": {
@@ -73,9 +73,9 @@ func TestParseHave(t *testing.T) {
 func TestParsePiece(t *testing.T) {
 	tests := map[string]struct {
 		msg       *Message
-		index     uint32
+		index     int
 		buf       []byte
-		outputN   uint32
+		outputN   int
 		targetBuf []byte
 		fails     bool
 	}{

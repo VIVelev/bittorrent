@@ -30,12 +30,12 @@ func completeHandshake(conn net.Conn, infoHash, peerID [20]byte) (*handshake.Han
 	req := handshake.Marshal(hs)
 	_, err := conn.Write(req[:])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("write: %s", err)
 	}
 
 	res, err := handshake.Unmarshal(conn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read: %s", err)
 	}
 	if !bytes.Equal(res.InfoHash[:], infoHash[:]) {
 		return nil, fmt.Errorf("expected InfoHash: %x, got: %x", infoHash, res.InfoHash)
@@ -50,7 +50,7 @@ func recvBitfield(conn net.Conn) (bitfield.Bitfield, error) {
 
 	msg, err := message.Unmarshal(conn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read: %s", err)
 	}
 	if msg == nil {
 		return nil, fmt.Errorf("expected bitfield message, but got %s", msg)
@@ -64,19 +64,19 @@ func recvBitfield(conn net.Conn) (bitfield.Bitfield, error) {
 
 // New connects to a peer, completes a handshake, and receives a bitfield.
 func New(p peer.Peer, infoHash, peerID [20]byte) (*Client, error) {
-	conn, err := net.DialTimeout("tcp", p.String(), 3*time.Second)
+	conn, err := net.DialTimeout("tcp", p.String(), 15*time.Second)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("connection: %s", err)
 	}
 
 	_, err = completeHandshake(conn, infoHash, peerID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("handshake: %s", err)
 	}
 
 	bf, err := recvBitfield(conn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("bitfield: %s", err)
 	}
 
 	return &Client{
@@ -110,13 +110,13 @@ func (c *Client) WriteNotInterested() error {
 	return err
 }
 
-func (c *Client) WriteHave(index uint32) error {
+func (c *Client) WriteHave(index int) error {
 	m := message.Have(index)
 	_, err := c.Conn.Write(message.Marshal(m))
 	return err
 }
 
-func (c *Client) WriteRequest(index, begin, length uint32) error {
+func (c *Client) WriteRequest(index, begin, length int) error {
 	m := message.Request(index, begin, length)
 	_, err := c.Conn.Write(message.Marshal(m))
 	return err

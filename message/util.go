@@ -6,46 +6,46 @@ import (
 )
 
 // Have creates a Have message.
-func Have(index uint32) *Message {
+func Have(index int) *Message {
 	var payload [4]byte
-	binary.BigEndian.PutUint32(payload[:], index)
+	binary.BigEndian.PutUint32(payload[:], uint32(index))
 	return &Message{ID: MsgHave, Payload: payload[:]}
 }
 
 // Request creates a Request message.
-func Request(index, begin, length uint32) *Message {
+func Request(index, begin, length int) *Message {
 	var payload [12]byte
-	binary.BigEndian.PutUint32(payload[0:4], index)
-	binary.BigEndian.PutUint32(payload[4:8], begin)
-	binary.BigEndian.PutUint32(payload[8:12], length)
+	binary.BigEndian.PutUint32(payload[0:4], uint32(index))
+	binary.BigEndian.PutUint32(payload[4:8], uint32(begin))
+	binary.BigEndian.PutUint32(payload[8:12], uint32(length))
 	return &Message{ID: MsgRequest, Payload: payload[:]}
 }
 
 // Piece creates a Piece message.
-func Piece(index, begin uint32, data []byte) *Message {
+func Piece(index, begin int, data []byte) *Message {
 	// TODO:
 	return nil
 }
 
 // ParseHave converts a Have message to the index from the payload.
-func ParseHave(msg *Message) (uint32, error) {
+func ParseHave(msg *Message) (int, error) {
 	if msg.ID != MsgHave {
 		return 0, fmt.Errorf("expected a Have message (ID %d), got ID %d", MsgHave, msg.ID)
 	}
 	if len(msg.Payload) != 4 {
 		return 0, fmt.Errorf("expected payload with length 4, got length %d", len(msg.Payload))
 	}
-	return binary.BigEndian.Uint32(msg.Payload), nil
+	return int(binary.BigEndian.Uint32(msg.Payload)), nil
 }
 
 // ParseRequest converts a Request message to the index, begin, length from the payload.
-func ParseRequest(msg *Message) (uint32, uint32, uint32, error) {
+func ParseRequest(msg *Message) (int, int, int, error) {
 	// TODO:
 	return 0, 0, 0, nil
 }
 
 // ParsePiece converts a Piece message to index, begin, data and writes data to buf.
-func ParsePiece(msg *Message, index uint32, buf []byte) (uint32, error) {
+func ParsePiece(msg *Message, index int, buf []byte) (int, error) {
 	if msg.ID != MsgPiece {
 		return 0, fmt.Errorf("expected a Piece message (ID %d), got ID %d", MsgPiece, msg.ID)
 	}
@@ -53,20 +53,20 @@ func ParsePiece(msg *Message, index uint32, buf []byte) (uint32, error) {
 		return 0, fmt.Errorf("payload too short, expected 8+ bytes, got %d", len(msg.Payload))
 	}
 
-	parsedIndex := binary.BigEndian.Uint32(msg.Payload[0:4])
+	parsedIndex := int(binary.BigEndian.Uint32(msg.Payload[0:4]))
 	if parsedIndex != index {
 		return 0, fmt.Errorf("expected index %d, got %d", index, parsedIndex)
 	}
 
-	begin := binary.BigEndian.Uint32(msg.Payload[4:8])
-	if begin >= uint32(len(buf)) {
+	begin := int(binary.BigEndian.Uint32(msg.Payload[4:8]))
+	if begin >= len(buf) {
 		return 0, fmt.Errorf("offset begin too high")
 	}
 
 	data := msg.Payload[8:]
-	if int(begin)+len(data) > len(buf) {
+	if begin+len(data) > len(buf) {
 		return 0, fmt.Errorf("not enough space in buf (%d) to write data (%d) from offset begin (%d)", len(buf), len(data), begin)
 	}
 
-	return uint32(copy(buf[begin:], data)), nil
+	return copy(buf[begin:], data), nil
 }
