@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 
 	"github.com/VIVelev/bittorrent/discovery"
@@ -17,7 +18,7 @@ func main() {
 
 	peerID := peer.RandID()
 	port := peer.DownloadPort
-	peers, err := discovery.RequestPeers(tf, peerID, port)
+	peers, err := discovery.UdpRequestPeers(tf.Announce, tf.Length, tf.InfoHash, peerID, port)
 	if err != nil {
 		panic(err)
 	}
@@ -27,8 +28,9 @@ func main() {
 
 	data := p2p.Download(tf, peerID, peers)
 	if data == nil {
-		panic("DEAD")
+		panic("download failed")
 	}
+	log.Println("Writing to disk...")
 	err = tf.WriteToFile(data)
 	if err != nil {
 		panic(err)

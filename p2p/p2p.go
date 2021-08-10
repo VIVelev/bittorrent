@@ -103,11 +103,10 @@ func checkIntegrity(pw *pieceWork, buf []byte) bool {
 	return bytes.Equal(hash[:], pw.checksum[:])
 }
 
-func startDownloadWorker(p peer.Peer, infoHash, peerID [20]byte, workQ chan *pieceWork, piecesQ chan *downloadedPiece, sigDead chan<- struct{}) {
+func startDownloadWorker(p peer.Peer, infoHash, peerID [20]byte, workQ chan *pieceWork, piecesQ chan *downloadedPiece) {
 	c, err := client.New(p, infoHash, peerID)
 	if err != nil {
 		log.Printf("Could not handshake with %s. Error: %s. Disconnecting.\n", p, err)
-		sigDead <- struct{}{}
 		return
 	}
 	log.Printf("Completed handshake with %s.\n", p)
@@ -127,7 +126,6 @@ func startDownloadWorker(p peer.Peer, infoHash, peerID [20]byte, workQ chan *pie
 			// this peer does not want to talk ;(
 			log.Println("Exiting.", err)
 			workQ <- pw // put back in the queue
-			sigDead <- struct{}{}
 			return
 		}
 
@@ -149,31 +147,24 @@ func Download(tf *io.TorrentFile, peerID [20]byte, peers []peer.Peer) []byte {
 	// init work and pieces queues, and sigDead channel
 	workQ := make(chan *pieceWork, totalPieces)
 	piecesQ := make(chan *downloadedPiece)
-	sigDead := make(chan struct{})
 
 	// fill in the work q
 	for i, hash := range tf.PieceHashes {
-		workQ <- &pieceWork{index: i, length: tf.PieceLength, checksum: hash}
+		length := tf.PieceLength
+		if i == totalPieces-1 {
+			length = tf.Length - tf.PieceLength*i
+			fmt.Printf("Piece length:%d\n", tf.PieceLength)
+			fmt.Printf("Last piece length:%d\n", length)
+		}
+
+		workQ <- &pieceWork{index: i, length: length, checksum: hash}
 	}
 
 	// start download workers
 	log.Printf("Starting a download worker for each peer (%d in total).\n", len(peers))
 	for _, p := range peers {
-		go startDownloadWorker(p, tf.InfoHash, peerID, workQ, piecesQ, sigDead)
+		go startDownloadWorker(p, tf.InfoHash, peerID, workQ, piecesQ)
 	}
-
-	// monitor for dead workers
-	go func() {
-		numDead := 0
-		for {
-			if numDead == len(peers) {
-				close(workQ)
-				close(piecesQ)
-			}
-			<-sigDead
-			numDead++
-		}
-	}()
 
 	// collect download pieces in a buffer until full
 	buf := make([]byte, tf.Length)
@@ -192,7 +183,7 @@ func Download(tf *io.TorrentFile, peerID [20]byte, peers []peer.Peer) []byte {
 		numDownloaded++
 
 		percent := float64(numDownloaded) / float64(totalPieces) * 100
-		numWorkers := runtime.NumGoroutine() - 2 // substract the main thread and dead workers monitor
+		numWorkers := runtime.NumGoroutine() - 1 // substract the main thread
 		log.Printf("(%0.2f%%) Downloaded piece #%d from %d peers\n", percent, piece.index, numWorkers)
 	}
 	close(workQ)

@@ -30,37 +30,22 @@ func Marshal(hs *Handshake) (ret [1 + Len + 48]byte) {
 }
 
 func Unmarshal(r io.Reader) (*Handshake, error) {
-	var l [1]byte
-	_, err := io.ReadFull(r, l[:])
+	var buf [1 + Len + 8 + 20 + 20]byte
+	_, err := io.ReadFull(r, buf[:])
 	if err != nil {
-		return nil, fmt.Errorf("length: %s", err)
-	}
-	if int(l[0]) != Len {
-		return nil, fmt.Errorf("invalid Pstr Len: %d, should be: %d", l[0], Len)
+		return nil, fmt.Errorf("read: %s", err)
 	}
 
-	var pstr [Len]byte
-	_, err = io.ReadFull(r, pstr[:])
-	if err != nil {
-		return nil, fmt.Errorf("pstr: %s", err)
+	if int(buf[0]) != Len {
+		return nil, fmt.Errorf("invalid Pstr Len: %d, should be: %d", buf[0], Len)
 	}
-	if string(pstr[:]) != Pstr {
-		return nil, fmt.Errorf("invalid Pstr: %s, should be: %s", pstr, Pstr)
+	if string(buf[1:1+Len]) != Pstr {
+		return nil, fmt.Errorf("invalid Pstr: %s, should be: %s", buf[1:1+Len], Pstr)
 	}
 
 	hs := new(Handshake)
-	_, err = io.ReadFull(r, hs.ReservedBytes[:])
-	if err != nil {
-		return nil, fmt.Errorf("reserved bytes: %s", err)
-	}
-	_, err = io.ReadFull(r, hs.InfoHash[:])
-	if err != nil {
-		return nil, fmt.Errorf("info hash: %s", err)
-	}
-	_, err = io.ReadFull(r, hs.PeerID[:])
-	if err != nil {
-		return nil, fmt.Errorf("peer id: %s", err)
-	}
-
+	copy(hs.ReservedBytes[:], buf[1+Len:1+Len+8])
+	copy(hs.InfoHash[:], buf[1+Len+8:1+Len+8+20])
+	copy(hs.PeerID[:], buf[1+Len+8+20:1+Len+8+20+20])
 	return hs, nil
 }

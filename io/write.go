@@ -32,8 +32,8 @@ func writeMultiFile(dirname string, files []bencodeFile, data []byte) error {
 	begin := 0
 	for _, f := range files {
 		buf := make([]byte, f.Length)
-		copy(buf, data[begin:f.Length])
-		begin += int(f.Length)
+		copy(buf, data[begin:begin+f.Length])
+		begin += f.Length
 
 		l := len(f.Path) - 1
 		fileName := f.Path[l]
